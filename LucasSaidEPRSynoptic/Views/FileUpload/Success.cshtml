@@ -1,0 +1,45 @@
+﻿@{
+    ViewData["Title"] = "Upload Successful";
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-success">
+                <div class="card-header bg-success text-white text-center">
+                    <h3 class="mb-0">
+                        <i class="fas fa-check-circle"></i> Upload Successful!
+                    </h3>
+                </div>
+                <div class="card-body text-center">
+                    <div class="alert alert-success">
+                        <h5>@ViewBag.Message</h5>
+                    </div>
+
+                    @if (ViewBag.UploadedFileId != null)
+                    {
+                        <div class="mb-4">
+                            <p class="text-muted">Your file has been securely stored and can be downloaded using the link below:</p>
+                            <a href="@Url.Action("Download", new { id = ViewBag.UploadedFileId })"
+                               class="btn btn-outline-success btn-lg me-2">
+                                <i class="fas fa-download"></i> Download File
+                            </a>
+                        </div>
+                    }
+
+                    <div class="mt-4">
+                        <a href="@Url.Action("Index", "FileUpload")" class="btn btn-primary btn-lg me-2">
+                            <i class="fas fa-plus"></i> Upload Another File
+                        </a>
+                        <a href="@Url.Action("List", "FileUpload")" class="btn btn-info btn-lg me-2">
+                            <i class="fas fa-list"></i> View All Files
+                        </a>
+                        <a href="@Url.Action("Index", "Home")" class="btn btn-secondary btn-lg">
+                            <i class="fas fa-home"></i> Go to Home
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

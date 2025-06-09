@@ -1,0 +1,170 @@
+﻿@model IEnumerable<Domain.Models.UploadedFile>
+
+@{
+    ViewData["Title"] = "Uploaded Files";
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-file-alt"></i> Uploaded Files</h2>
+                <a href="@Url.Action("Index", "FileUpload")" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Upload New File
+                </a>
+            </div>
+
+            @if (TempData["SuccessMessage"] != null)
+            {
+                <div class="alert alert-success alert-dismissible fade show">
+                    @TempData["SuccessMessage"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+
+            @if (TempData["ErrorMessage"] != null)
+            {
+                <div class="alert alert-danger alert-dismissible fade show">
+                    @TempData["ErrorMessage"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+
+            @if (Model?.Any() == true)
+            {
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Title</th>
+                                        <th>Original Filename</th>
+                                        <th>Size</th>
+                                        <th>Type</th>
+                                        <th>Uploaded</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var file in Model)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <strong>@file.Title</strong>
+                                                @if (!string.IsNullOrEmpty(file.Description))
+                                                {
+                                                    <br>
+
+                                                    <small class="text-muted">@file.Description</small>
+                                                }
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-secondary">@file.FileExtension.ToUpper()</span>
+                                                @file.OriginalFileName
+                                            </td>
+                                            <td>@FormatFileSize(file.FileSizeInBytes)</td>
+                                            <td><span class="badge bg-info">@file.ContentType</span></td>
+                                            <td>
+                                                @file.UploadedAt.ToString("MMM dd, yyyy")
+                                                <br><small class="text-muted">@file.UploadedAt.ToString("HH:mm:ss")</small>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <a href="@Url.Action("Download", new { id = file.Id })"
+                                                       class="btn btn-sm btn-outline-primary"
+                                                       title="Download">
+                                                        <i class="fas fa-download"></i>
+                                                    </a>
+                                                    <a href="@Url.Action("Details", new { id = file.Id })"
+                                                       class="btn btn-sm btn-outline-info"
+                                                       title="Details">
+                                                        <i class="fas fa-info-circle"></i>
+                                                    </a>
+                                                    <button type="button"
+                                                            class="btn btn-sm btn-outline-danger"
+                                                            onclick="confirmDelete(@file.Id, '@file.Title')"
+                                                            title="Delete">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i>
+                        Showing @Model.Count() file(s). Files are stored securely and cannot be accessed directly.
+                    </small>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5">
+                    <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">No Files Uploaded Yet</h4>
+                    <p class="text-muted">Upload your first file to get started!</p>
+                    <a href="@Url.Action("Index", "FileUpload")" class="btn btn-primary btn-lg">
+                        <i class="fas fa-upload"></i> Upload File
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Delete confirmation modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the file "<span id="fileName"></span>"?</p>
+                <p class="text-danger"><small>This action cannot be undone.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="post" style="display: inline;">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function confirmDelete(fileId, fileName) {
+        document.getElementById('fileName').textContent = fileName;
+        document.getElementById('deleteForm').action = '@Url.Action("Delete")/' + fileId;
+
+        var modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        modal.show();
+    }
+</script>
+
+@functions {
+    string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len = len / 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
+    }
+}
