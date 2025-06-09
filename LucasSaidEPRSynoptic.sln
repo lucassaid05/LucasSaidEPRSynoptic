@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.12.35707.178 d17.12
+VisualStudioVersion = 17.12.35707.178
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LucasSaidEPRSynoptic", "LucasSaidEPRSynoptic\LucasSaidEPRSynoptic.csproj", "{0E32BD99-1268-47BB-B415-950E04CD980C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Domain", "Domain\Domain.csproj", "{0EA98355-A4A1-4BC9-90E7-E15E24639B01}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{0E32BD99-1268-47BB-B415-950E04CD980C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0E32BD99-1268-47BB-B415-950E04CD980C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0E32BD99-1268-47BB-B415-950E04CD980C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0EA98355-A4A1-4BC9-90E7-E15E24639B01}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0EA98355-A4A1-4BC9-90E7-E15E24639B01}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0EA98355-A4A1-4BC9-90E7-E15E24639B01}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0EA98355-A4A1-4BC9-90E7-E15E24639B01}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
