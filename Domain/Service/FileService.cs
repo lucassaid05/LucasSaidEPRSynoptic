@@ -1,10 +1,7 @@
 ﻿using Domain.Models;
 using Domain.Interfaces;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
-using System.Text;
+using DataAccess.Interfaces;
 
 namespace Domain.Service
 {
@@ -12,20 +9,24 @@ namespace Domain.Service
     {
         private readonly IConfiguration _configuration;
         private readonly ILogger<FileService> _logger;
+        private readonly IFileUploadRepository _repository;
         private readonly string _secureStoragePath;
         private readonly string _tempStoragePath;
         private readonly bool _generateUniqueNames;
-        private readonly List<UploadedFile> _files; 
 
-        public FileService(IConfiguration configuration, ILogger<FileService> logger)
+        public FileService(
+            IConfiguration configuration,
+            ILogger<FileService> logger,
+            IFileUploadRepository repository)
         {
             _configuration = configuration;
             _logger = logger;
+            _repository = repository;
             _secureStoragePath = _configuration["FileUpload:SecureStoragePath"] ?? "App_Data/SecureFiles";
             _tempStoragePath = _configuration["FileUpload:TempStoragePath"] ?? "App_Data/TempFiles";
             _generateUniqueNames = _configuration.GetValue<bool>("FileUpload:GenerateUniqueNames", true);
-            _files = new List<UploadedFile>();
 
+            // Ensure directories exist
             EnsureDirectoriesExist();
         }
 
@@ -36,12 +37,13 @@ namespace Domain.Service
                 if (file == null || file.Length == 0)
                     throw new ArgumentException("File is empty or null");
 
+                // Generate secure file name
                 var storedFileName = GenerateSecureFileName(file.FileName);
                 var filePath = Path.Combine(_secureStoragePath, storedFileName);
 
+                // Create the domain model
                 var uploadedFile = new UploadedFile
                 {
-                    Id = _files.Count + 1,
                     Title = title,
                     OriginalFileName = file.FileName,
                     StoredFileName = storedFileName,
@@ -55,21 +57,26 @@ namespace Domain.Service
                     IPAddress = ipAddress ?? "Unknown"
                 };
 
+                // Calculate file hash for integrity
                 using var stream = file.OpenReadStream();
                 uploadedFile.FileHash = await CalculateFileHashAsync(stream);
-                stream.Position = 0; 
+                stream.Position = 0; // Reset stream position
 
+                // Store the file physically
                 using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
                 {
                     await file.CopyToAsync(fileStream);
                 }
 
-                _files.Add(uploadedFile);
+                // Save to database
+                var entity = FileMapper.ToDataEntity(uploadedFile);
+                var savedEntity = await _repository.AddAsync(entity);
+                var result = FileMapper.ToDomainModel(savedEntity);
 
-                _logger.LogInformation("File stored successfully: {FileName} -> {StoredFileName}",
-                    file.FileName, storedFileName);
+                _logger.LogInformation("File stored successfully: {FileName} -> {StoredFileName} (ID: {Id})",
+                    file.FileName, storedFileName, result.Id);
 
-                return uploadedFile;
+                return result;
             }
             catch (Exception ex)
             {
@@ -80,17 +87,17 @@ namespace Domain.Service
 
         public async Task<(Stream fileStream, string contentType, string fileName)> RetrieveFileAsync(int fileId)
         {
-            var fileInfo = _files.FirstOrDefault(f => f.Id == fileId && f.IsActive);
-            if (fileInfo == null)
+            var entity = await _repository.GetByIdAsync(fileId);
+            if (entity == null || !entity.IsActive)
                 throw new FileNotFoundException($"File with ID {fileId} not found");
 
-            return await RetrieveFileAsync(fileInfo.StoredFileName);
+            return await RetrieveFileAsync(entity.StoredFileName);
         }
 
         public async Task<(Stream fileStream, string contentType, string fileName)> RetrieveFileAsync(string storedFileName)
         {
-            var fileInfo = _files.FirstOrDefault(f => f.StoredFileName == storedFileName && f.IsActive);
-            if (fileInfo == null)
+            var entity = await _repository.GetByStoredFileNameAsync(storedFileName);
+            if (entity == null || !entity.IsActive)
                 throw new FileNotFoundException($"File {storedFileName} not found in records");
 
             var filePath = Path.Combine(_secureStoragePath, storedFileName);
@@ -99,54 +106,90 @@ namespace Domain.Service
                 throw new FileNotFoundException($"Physical file {storedFileName} not found");
 
             var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            return (fileStream, fileInfo.ContentType, fileInfo.OriginalFileName);
+            return await Task.FromResult((fileStream, entity.ContentType, entity.OriginalFileName));
         }
 
         public async Task<bool> DeleteFileAsync(int fileId)
         {
-            var fileInfo = _files.FirstOrDefault(f => f.Id == fileId);
-            if (fileInfo == null)
-                return false;
-
             try
             {
-                fileInfo.IsActive = false;
+                var entity = await _repository.GetByIdAsync(fileId);
+                if (entity == null)
+                    return false;
 
-                var filePath = Path.Combine(_secureStoragePath, fileInfo.StoredFileName);
-                if (File.Exists(filePath))
+                // Soft delete in database
+                var success = await _repository.SoftDeleteAsync(fileId);
+
+                if (success)
                 {
-                    File.Delete(filePath);
+                    // Optionally delete physical file
+                    var filePath = Path.Combine(_secureStoragePath, entity.StoredFileName);
+                    if (File.Exists(filePath))
+                    {
+                        File.Delete(filePath);
+                    }
+
+                    _logger.LogInformation("File deleted: {StoredFileName} (ID: {Id})", entity.StoredFileName, fileId);
                 }
 
-                _logger.LogInformation("File deleted: {StoredFileName}", fileInfo.StoredFileName);
-                return true;
+                return success;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error deleting file: {StoredFileName}", fileInfo.StoredFileName);
+                _logger.LogError(ex, "Error deleting file: {FileId}", fileId);
                 return false;
             }
         }
 
         public async Task<bool> FileExistsAsync(string storedFileName)
         {
-            var filePath = Path.Combine(_secureStoragePath, storedFileName);
-            return File.Exists(filePath) && _files.Any(f => f.StoredFileName == storedFileName && f.IsActive);
+            try
+            {
+                var entity = await _repository.GetByStoredFileNameAsync(storedFileName);
+                if (entity == null || !entity.IsActive)
+                    return false;
+
+                var filePath = Path.Combine(_secureStoragePath, storedFileName);
+                return File.Exists(filePath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking if file exists: {StoredFileName}", storedFileName);
+                return false;
+            }
         }
 
-        public async Task<string> GetSecureFilePathAsync(string storedFileName)
+        public string GetSecureFilePath(string storedFileName)
         {
             return Path.Combine(_secureStoragePath, storedFileName);
         }
 
         public async Task<UploadedFile?> GetFileInfoAsync(int fileId)
         {
-            return _files.FirstOrDefault(f => f.Id == fileId && f.IsActive);
+            try
+            {
+                var entity = await _repository.GetByIdAsync(fileId);
+                return entity != null && entity.IsActive ? FileMapper.ToDomainModel(entity) : null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving file info: {FileId}", fileId);
+                return null;
+            }
         }
 
         public async Task<IEnumerable<UploadedFile>> GetAllFilesAsync()
         {
-            return _files.Where(f => f.IsActive).OrderByDescending(f => f.UploadedAt);
+            try
+            {
+                var entities = await _repository.GetAllActiveAsync();
+                return FileMapper.ToDomainModels(entities);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving all files");
+                return Enumerable.Empty<UploadedFile>();
+            }
         }
 
         public string GenerateSecureFileName(string originalFileName)
@@ -156,7 +199,7 @@ namespace Domain.Service
 
             var extension = Path.GetExtension(originalFileName);
             var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
-            var uniqueId = Guid.NewGuid().ToString("N")[..8]; 
+            var uniqueId = Guid.NewGuid().ToString("N")[..8]; // First 8 characters
 
             return $"{timestamp}_{uniqueId}{extension}";
         }
@@ -184,12 +227,14 @@ namespace Domain.Service
                     _logger.LogInformation("Created temp storage directory: {Path}", _tempStoragePath);
                 }
 
+                // Create .htaccess file to prevent direct access (for Apache servers)
                 var htaccessPath = Path.Combine(_secureStoragePath, ".htaccess");
                 if (!File.Exists(htaccessPath))
                 {
-                    File.WriteAllTextAsync(htaccessPath, "deny from all");
+                    File.WriteAllText(htaccessPath, "deny from all");
                 }
 
+                // Create web.config for IIS to prevent direct access
                 var webConfigPath = Path.Combine(_secureStoragePath, "web.config");
                 if (!File.Exists(webConfigPath))
                 {
@@ -201,7 +246,7 @@ namespace Domain.Service
     </handlers>
   </system.webServer>
 </configuration>";
-                    File.WriteAllTextAsync(webConfigPath, webConfigContent);
+                    File.WriteAllText(webConfigPath, webConfigContent);
                 }
             }
             catch (Exception ex)
@@ -213,9 +258,11 @@ namespace Domain.Service
 
         private string SanitizeFileName(string fileName)
         {
+            // Remove invalid characters
             var invalidChars = Path.GetInvalidFileNameChars();
             var sanitized = new string(fileName.Where(c => !invalidChars.Contains(c)).ToArray());
 
+            // Limit length
             if (sanitized.Length > 100)
                 sanitized = sanitized[..100];
 

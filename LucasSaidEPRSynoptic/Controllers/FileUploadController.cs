@@ -1,10 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using LucasSaidEPRSynoptic.Models;
 using Domain.Interfaces;
-using Microsoft.Extensions.Configuration;
-using System.Linq;
+using Domain.Models;
 
-namespace LucasSaidEPRSynoptic.Presentation.Controllers
+namespace LucasSaidEPRSynoptic.Controllers
 {
     public class FileUploadController : Controller
     {
@@ -19,30 +18,39 @@ namespace LucasSaidEPRSynoptic.Presentation.Controllers
             _logger = logger;
         }
 
+        // GET: FileUpload
         public IActionResult Index()
         {
             return View(new FileUploadViewModel());
         }
 
+        // POST: FileUpload
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Index(FileUploadViewModel model)
         {
+            // Check if model state is valid
             if (!ModelState.IsValid)
             {
                 return View(model);
             }
+
+            // Additional file validation
             if (model.FileUpload != null)
             {
+                // Get validation settings from configuration
                 var maxSizeMB = _configuration.GetValue<int>("FileUpload:MaxFileSizeInMB", 10);
                 var allowedExtensions = _configuration.GetSection("FileUpload:AllowedExtensions").Get<string[]>()
                     ?? new[] { ".pdf", ".doc", ".docx", ".txt", ".jpg", ".jpeg", ".png" };
+
+                // Check file size
                 if (model.FileUpload.Length > maxSizeMB * 1024 * 1024)
                 {
                     ModelState.AddModelError("FileUpload", $"File size cannot exceed {maxSizeMB}MB");
                     return View(model);
                 }
 
+                // Check file extension
                 var fileExtension = Path.GetExtension(model.FileUpload.FileName).ToLowerInvariant();
 
                 if (!allowedExtensions.Contains(fileExtension))
@@ -52,15 +60,22 @@ namespace LucasSaidEPRSynoptic.Presentation.Controllers
                     return View(model);
                 }
             }
+            else
+            {
+                ModelState.AddModelError("FileUpload", "Please select a file to upload");
+                return View(model);
+            }
 
             try
             {
+                // Get client information for security tracking
                 var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
                 var userId = User.Identity?.Name ?? "Anonymous";
 
+                // Store the file using the file service (null-checked above)
                 var uploadedFile = await _fileService.StoreFileAsync(
                     model.Title,
-                    model.FileUpload,
+                    model.FileUpload!, // Non-null assertion since we checked above
                     model.Description,
                     userId,
                     ipAddress);
@@ -80,21 +95,25 @@ namespace LucasSaidEPRSynoptic.Presentation.Controllers
                 return View(model);
             }
         }
+
+        // GET: FileUpload/Success
         public IActionResult Success()
         {
             ViewBag.Message = TempData["SuccessMessage"];
             ViewBag.UploadedFileId = TempData["UploadedFileId"];
             return View();
         }
+
+        // GET: FileUpload/Download/5
         public async Task<IActionResult> Download(int id)
         {
             try
             {
-                var (fileStream, contentType, fileName) = await _fileService.RetrieveFileAsync(id);
+                var fileResult = await _fileService.RetrieveFileAsync(id);
 
-                _logger.LogInformation("File downloaded: {FileId} - {FileName}", id, fileName);
+                _logger.LogInformation("File downloaded: {FileId} - {FileName}", id, fileResult.fileName);
 
-                return File(fileStream, contentType, fileName);
+                return File(fileResult.fileStream, fileResult.contentType, fileResult.fileName);
             }
             catch (FileNotFoundException)
             {
@@ -107,6 +126,8 @@ namespace LucasSaidEPRSynoptic.Presentation.Controllers
                 return StatusCode(500, "An error occurred while downloading the file");
             }
         }
+
+        // GET: FileUpload/List
         public async Task<IActionResult> List()
         {
             try
@@ -120,6 +141,8 @@ namespace LucasSaidEPRSynoptic.Presentation.Controllers
                 return StatusCode(500, "An error occurred while retrieving the file list");
             }
         }
+
+        // GET: FileUpload/Details/5
         public async Task<IActionResult> Details(int id)
         {
             try
@@ -137,6 +160,7 @@ namespace LucasSaidEPRSynoptic.Presentation.Controllers
             }
         }
 
+        // POST: FileUpload/Delete/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(int id)

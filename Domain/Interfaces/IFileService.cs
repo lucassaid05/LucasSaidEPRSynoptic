@@ -1,4 +1,5 @@
 ﻿using Domain.Models;
+using Microsoft.AspNetCore.Http;
 
 namespace Domain.Interfaces
 {
@@ -9,7 +10,7 @@ namespace Domain.Interfaces
         Task<(Stream fileStream, string contentType, string fileName)> RetrieveFileAsync(string storedFileName);
         Task<bool> DeleteFileAsync(int fileId);
         Task<bool> FileExistsAsync(string storedFileName);
-        Task<string> GetSecureFilePathAsync(string storedFileName);
+        string GetSecureFilePath(string storedFileName);
         Task<UploadedFile?> GetFileInfoAsync(int fileId);
         Task<IEnumerable<UploadedFile>> GetAllFilesAsync();
         string GenerateSecureFileName(string originalFileName);
