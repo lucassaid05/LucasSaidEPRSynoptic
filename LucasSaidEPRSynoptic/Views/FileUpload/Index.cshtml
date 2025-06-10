@@ -1,108 +1,59 @@
 ﻿@model LucasSaidEPRSynoptic.Models.FileUploadViewModel
 
 @{
-    ViewData["Title"] = "File Upload";
+    ViewData["Title"] = "Upload File";
 }
 
-<div class="container mt-4">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="mb-0">
-                        <i class="fas fa-upload"></i> Upload File
-                    </h3>
-                </div>
-                <div class="card-body">
-                    @if (!ViewData.ModelState.IsValid)
-                    {
-                        <div class="alert alert-danger">
-                            <h6>Please correct the following errors:</h6>
-                            <div asp-validation-summary="All" class="text-danger"></div>
-                        </div>
-                    }
+<h2 class="mb-4">Upload a New File</h2>
 
-                    <form asp-action="Index" method="post" enctype="multipart/form-data" id="uploadForm">
-                        @Html.AntiForgeryToken()
-
-                        <div class="form-group mb-3">
-                            <label asp-for="Title" class="form-label required"></label>
-                            <input asp-for="Title" class="form-control" placeholder="Enter a descriptive title for your file" />
-                            <span asp-validation-for="Title" class="text-danger"></span>
-                        </div>
-
-                        <div class="form-group mb-3">
-                            <label asp-for="FileUpload" class="form-label required"></label>
-                            <input asp-for="FileUpload" type="file" class="form-control" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png" />
-                            <div class="form-text">
-                                Allowed file types: PDF, Word documents, Text files, Images (JPG, PNG). Maximum size: 10MB
-                            </div>
-                            <span asp-validation-for="FileUpload" class="text-danger"></span>
-                        </div>
-
-                        <div class="form-group mb-3">
-                            <label asp-for="Description" class="form-label"></label>
-                            <textarea asp-for="Description" class="form-control" rows="3"
-                                      placeholder="Optional: Add a description for your file"></textarea>
-                            <span asp-validation-for="Description" class="text-danger"></span>
-                        </div>
-
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
-                                <i class="fas fa-upload"></i> Upload File
-                            </button>
-                            <a href="@Url.Action("Index", "Home")" class="btn btn-secondary btn-lg">
-                                <i class="fas fa-times"></i> Cancel
-                            </a>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
-</div>
+}
 
-<style>
-    .required::after {
-        content: " *";
-        color: red;
-    }
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
 
-    .card {
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
+<form asp-action="Index" asp-controller="FileUpload" method="post" enctype="multipart/form-data">
+    @Html.AntiForgeryToken()
 
-    .form-control:focus {
-        border-color: #80bdff;
-        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-    }
-</style>
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
-<script>
-    document.getElementById('FileUpload').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        const submitBtn = document.getElementById('submitBtn');
+    <div class="mb-3">
+        <label asp-for="Title" class="form-label"></label>
+        <input asp-for="Title" class="form-control" />
+        <span asp-validation-for="Title" class="text-danger"></span>
+    </div>
 
-        if (file) {
-            if (file.size > 10 * 1024 * 1024) {
-                alert('File size cannot exceed 10MB');
-                e.target.value = '';
-                return;
-            }
-            submitBtn.innerHTML = '<i class="fas fa-upload"></i> Upload: ' + file.name;
-        } else {
-            submitBtn.innerHTML = '<i class="fas fa-upload"></i> Upload File';
-        }
-    });
-    document.getElementById('uploadForm').addEventListener('submit', function() {
-        const submitBtn = document.getElementById('submitBtn');
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
-        submitBtn.disabled = true;
-    });
-</script>
+    <div class="mb-3">
+        <label asp-for="FileUpload" class="form-label"></label>
+        <input asp-for="FileUpload" type="file" class="form-control" />
+        <span asp-validation-for="FileUpload" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Description" class="form-label"></label>
+        <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+        <span asp-validation-for="Description" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary">
+        <i class="fas fa-upload"></i> Upload
+    </button>
+
+    <a href="@Url.Action("List", "FileUpload")" class="btn btn-secondary ms-2">
+        <i class="fas fa-folder"></i> View My Files
+    </a>
+</form>
 
 @section Scripts {
-    @{
-        await Html.RenderPartialAsync("_ValidationScriptsPartial");
-    }
+    <partial name="_ValidationScriptsPartial" />
 }
