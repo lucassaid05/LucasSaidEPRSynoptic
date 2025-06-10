@@ -2,6 +2,9 @@
 using LucasSaidEPRSynoptic.Models;
 using Domain.Interfaces;
 using Domain.Models;
+using System.IO;
+using System.Threading.Tasks;
+using System;
 
 namespace LucasSaidEPRSynoptic.Controllers
 {
@@ -18,39 +21,32 @@ namespace LucasSaidEPRSynoptic.Controllers
             _logger = logger;
         }
 
-        // GET: FileUpload
         public IActionResult Index()
         {
             return View(new FileUploadViewModel());
         }
 
-        // POST: FileUpload
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Index(FileUploadViewModel model)
         {
-            // Check if model state is valid
             if (!ModelState.IsValid)
             {
                 return View(model);
             }
 
-            // Additional file validation
             if (model.FileUpload != null)
             {
-                // Get validation settings from configuration
                 var maxSizeMB = _configuration.GetValue<int>("FileUpload:MaxFileSizeInMB", 10);
                 var allowedExtensions = _configuration.GetSection("FileUpload:AllowedExtensions").Get<string[]>()
                     ?? new[] { ".pdf", ".doc", ".docx", ".txt", ".jpg", ".jpeg", ".png" };
 
-                // Check file size
                 if (model.FileUpload.Length > maxSizeMB * 1024 * 1024)
                 {
                     ModelState.AddModelError("FileUpload", $"File size cannot exceed {maxSizeMB}MB");
                     return View(model);
                 }
 
-                // Check file extension
                 var fileExtension = Path.GetExtension(model.FileUpload.FileName).ToLowerInvariant();
 
                 if (!allowedExtensions.Contains(fileExtension))
@@ -66,16 +62,14 @@ namespace LucasSaidEPRSynoptic.Controllers
                 return View(model);
             }
 
-            try
+            try 
             {
-                // Get client information for security tracking
                 var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
                 var userId = User.Identity?.Name ?? "Anonymous";
 
-                // Store the file using the file service (null-checked above)
                 var uploadedFile = await _fileService.StoreFileAsync(
                     model.Title,
-                    model.FileUpload!, // Non-null assertion since we checked above
+                    model.FileUpload!,
                     model.Description,
                     userId,
                     ipAddress);
@@ -96,7 +90,6 @@ namespace LucasSaidEPRSynoptic.Controllers
             }
         }
 
-        // GET: FileUpload/Success
         public IActionResult Success()
         {
             ViewBag.Message = TempData["SuccessMessage"];
@@ -104,7 +97,6 @@ namespace LucasSaidEPRSynoptic.Controllers
             return View();
         }
 
-        // GET: FileUpload/Download/5
         public async Task<IActionResult> Download(int id)
         {
             try
@@ -127,7 +119,6 @@ namespace LucasSaidEPRSynoptic.Controllers
             }
         }
 
-        // GET: FileUpload/List
         public async Task<IActionResult> List()
         {
             try
@@ -142,7 +133,6 @@ namespace LucasSaidEPRSynoptic.Controllers
             }
         }
 
-        // GET: FileUpload/Details/5
         public async Task<IActionResult> Details(int id)
         {
             try
@@ -160,7 +150,6 @@ namespace LucasSaidEPRSynoptic.Controllers
             }
         }
 
-        // POST: FileUpload/Delete/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(int id)

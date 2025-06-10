@@ -13,8 +13,10 @@ namespace DataAccess.Repository
 
         public FileUploadRepository(ApplicationDbContext context, ILogger<FileUploadRepository> logger)
         {
-            _context = context;
-            _logger = logger;
+            _context = context ?? throw new ArgumentNullException(nameof(context));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+            _logger.LogInformation("FileUploadRepository instantiated with Constructor Injection");
         }
 
         public async Task<FileUploadEntity> AddAsync(FileUploadEntity entity)
@@ -24,7 +26,7 @@ namespace DataAccess.Repository
                 _context.UploadedFiles.Add(entity);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("File entity added to database: {Id} - {StoredFileName}",
+                _logger.LogInformation("File entity added to database via Constructor-Injected context: {Id} - {StoredFileName}",
                     entity.Id, entity.StoredFileName);
 
                 return entity;
@@ -41,6 +43,7 @@ namespace DataAccess.Repository
         {
             try
             {
+                _logger.LogDebug("Retrieving file entity by ID using Constructor-Injected context: {Id}", id);
                 return await _context.UploadedFiles
                     .FirstOrDefaultAsync(f => f.Id == id);
             }
@@ -55,6 +58,8 @@ namespace DataAccess.Repository
         {
             try
             {
+                _logger.LogDebug("Retrieving file entity by stored filename using Constructor-Injected context: {StoredFileName}",
+                    storedFileName);
                 return await _context.UploadedFiles
                     .FirstOrDefaultAsync(f => f.StoredFileName == storedFileName);
             }
@@ -70,6 +75,7 @@ namespace DataAccess.Repository
         {
             try
             {
+                _logger.LogDebug("Retrieving all active files using Constructor-Injected context");
                 return await _context.UploadedFiles
                     .Where(f => f.IsActive)
                     .OrderByDescending(f => f.UploadedAt)
@@ -86,6 +92,7 @@ namespace DataAccess.Repository
         {
             try
             {
+                _logger.LogDebug("Retrieving files for user using Constructor-Injected context: {UserId}", userId);
                 return await _context.UploadedFiles
                     .Where(f => f.UploadedByUser == userId && f.IsActive)
                     .OrderByDescending(f => f.UploadedAt)
@@ -105,7 +112,7 @@ namespace DataAccess.Repository
                 _context.UploadedFiles.Update(entity);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("File entity updated: {Id} - {StoredFileName}",
+                _logger.LogInformation("File entity updated using Constructor-Injected context: {Id} - {StoredFileName}",
                     entity.Id, entity.StoredFileName);
 
                 return entity;
@@ -128,7 +135,7 @@ namespace DataAccess.Repository
                 _context.UploadedFiles.Remove(entity);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("File entity deleted from database: {Id}", id);
+                _logger.LogInformation("File entity deleted from database using Constructor-Injected context: {Id}", id);
                 return true;
             }
             catch (Exception ex)
@@ -151,7 +158,7 @@ namespace DataAccess.Repository
 
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("File entity soft deleted: {Id}", id);
+                _logger.LogInformation("File entity soft deleted using Constructor-Injected context: {Id}", id);
                 return true;
             }
             catch (Exception ex)
