@@ -1,24 +1,38 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using LucasSaidEPRSynoptic.Models;
+using LucasSaidEPRSynoptic.Filters;
 using Domain.Interfaces;
 using Domain.Models;
+using DataAccess.Interfaces;
 using System.IO;
 using System.Threading.Tasks;
 using System;
 
 namespace LucasSaidEPRSynoptic.Controllers
 {
+    [Authorize]
     public class FileUploadController : Controller
     {
         private readonly IFileService _fileService;
+        private readonly IFileUploadRepository _repository;
         private readonly IConfiguration _configuration;
         private readonly ILogger<FileUploadController> _logger;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public FileUploadController(IFileService fileService, IConfiguration configuration, ILogger<FileUploadController> logger)
+        public FileUploadController(
+            IFileService fileService,
+            IFileUploadRepository repository,
+            IConfiguration configuration,
+            ILogger<FileUploadController> logger,
+            UserManager<ApplicationUser> userManager)
         {
             _fileService = fileService;
+            _repository = repository;
             _configuration = configuration;
             _logger = logger;
+            _userManager = userManager;
         }
 
         public IActionResult Index()
@@ -62,10 +76,11 @@ namespace LucasSaidEPRSynoptic.Controllers
                 return View(model);
             }
 
-            try 
+            try
             {
+                var currentUser = await _userManager.GetUserAsync(User);
                 var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
-                var userId = User.Identity?.Name ?? "Anonymous";
+                var userId = currentUser?.Id ?? "Anonymous";
 
                 var uploadedFile = await _fileService.StoreFileAsync(
                     model.Title,
@@ -74,8 +89,8 @@ namespace LucasSaidEPRSynoptic.Controllers
                     userId,
                     ipAddress);
 
-                _logger.LogInformation("File uploaded successfully: {FileId} - {Title}",
-                    uploadedFile.Id, uploadedFile.Title);
+                _logger.LogInformation("File uploaded successfully by user {UserId}: {FileId} - {Title}",
+                    userId, uploadedFile.Id, uploadedFile.Title);
 
                 TempData["SuccessMessage"] = $"File '{model.Title}' uploaded successfully! File ID: {uploadedFile.Id}";
                 TempData["UploadedFileId"] = uploadedFile.Id;
@@ -97,6 +112,7 @@ namespace LucasSaidEPRSynoptic.Controllers
             return View();
         }
 
+        [RequireFileOwnership]
         public async Task<IActionResult> Download(int id)
         {
             try
@@ -123,7 +139,27 @@ namespace LucasSaidEPRSynoptic.Controllers
         {
             try
             {
-                var files = await _fileService.GetAllFilesAsync();
+                var currentUser = await _userManager.GetUserAsync(User);
+                var isAdmin = User.IsInRole("Admin");
+
+                IEnumerable<Domain.Models.UploadedFile> files;
+
+                if (isAdmin)
+                {
+                    // Admins can see all files
+                    files = await _fileService.GetAllFilesAsync();
+                    ViewBag.IsAdmin = true;
+                }
+                else
+                {
+                    // Regular users see only their own files
+                    var userFiles = await _repository.GetByUserAsync(currentUser!.Id);
+                    files = Domain.Service.FileMapper.ToDomainModels(userFiles);
+                    ViewBag.IsAdmin = false;
+                }
+
+                ViewBag.CurrentUserId = currentUser?.Id;
+
                 return View(files);
             }
             catch (Exception ex)
@@ -133,6 +169,7 @@ namespace LucasSaidEPRSynoptic.Controllers
             }
         }
 
+        [RequireFileOwnership]
         public async Task<IActionResult> Details(int id)
         {
             try
@@ -152,6 +189,7 @@ namespace LucasSaidEPRSynoptic.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequireFileOwnership]
         public async Task<IActionResult> Delete(int id)
         {
             try
@@ -175,6 +213,49 @@ namespace LucasSaidEPRSynoptic.Controllers
             }
 
             return RedirectToAction("List");
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> MyFiles()
+        {
+            try
+            {
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
+                {
+                    return RedirectToAction("Login", "Account");
+                }
+
+                var userFiles = await _repository.GetByUserAsync(currentUser.Id);
+                var files = Domain.Service.FileMapper.ToDomainModels(userFiles);
+
+                var totalSize = userFiles.Sum(f => f.FileSizeInBytes);
+                var fileCount = userFiles.Count();
+
+                ViewBag.TotalFiles = fileCount;
+                ViewBag.TotalSize = FormatFileSize(totalSize);
+                ViewBag.UserName = currentUser.FullName;
+
+                return View(files);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving user files");
+                return StatusCode(500, "An error occurred while retrieving your files");
+            }
+        }
+
+        private static string FormatFileSize(long bytes)
+        {
+            string[] sizes = { "B", "KB", "MB", "GB" };
+            double len = bytes;
+            int order = 0;
+            while (len >= 1024 && order < sizes.Length - 1)
+            {
+                order++;
+                len = len / 1024;
+            }
+            return $"{len:0.##} {sizes[order]}";
         }
     }
 }

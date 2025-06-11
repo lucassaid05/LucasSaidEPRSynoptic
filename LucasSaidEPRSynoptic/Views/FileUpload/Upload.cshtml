@@ -1,0 +1,38 @@
+﻿@model LucasSaidEPRSynoptic.Models.FileUploadViewModel
+
+@{
+    ViewData["Title"] = "Upload File";
+}
+
+<h2 class="mb-4"><i class="fas fa-upload"></i> Upload a File</h2>
+
+<form asp-action="Upload" asp-controller="FileUpload" method="post" enctype="multipart/form-data">
+    <div class="mb-3">
+        <label asp-for="Title" class="form-label"></label>
+        <input asp-for="Title" class="form-control" />
+        <span asp-validation-for="Title" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="FileUpload" class="form-label"></label>
+        <input asp-for="FileUpload" type="file" class="form-control" />
+        <span asp-validation-for="FileUpload" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Description" class="form-label"></label>
+        <textarea asp-for="Description" class="form-control"></textarea>
+        <span asp-validation-for="Description" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-success">
+        <i class="fas fa-cloud-upload-alt"></i> Submit
+    </button>
+    <a href="@Url.Action("List", "FileUpload")" class="btn btn-secondary ms-2">Cancel</a>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

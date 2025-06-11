@@ -1,20 +1,25 @@
 ﻿using DataAccess.Models;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
+using LucasSaidEPRSynoptic.Models;
 
 namespace DataAccess.Context
 {
-    public class ApplicationDbContext : DbContext
+    public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
         {
         }
 
-        public DbSet<FileUploadEntity> UploadedFiles { get; set; }
+        public DbSet<FileUploadEntity> UploadedFiles { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // Configure FileUploadEntity
             modelBuilder.Entity<FileUploadEntity>(entity =>
             {
                 entity.ToTable("UploadedFiles");
@@ -81,6 +86,49 @@ namespace DataAccess.Context
 
                 entity.Property(e => e.UploadedAt)
                       .HasDefaultValueSql("GETUTCDATE()");
+
+                // Add relationship to ApplicationUser
+                entity.HasOne<ApplicationUser>()
+                      .WithMany()
+                      .HasForeignKey(e => e.UploadedByUser)
+                      .HasPrincipalKey(u => u.Id)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Configure Identity table names (optional - for cleaner database)
+            modelBuilder.Entity<ApplicationUser>(entity =>
+            {
+                entity.ToTable("Users");
+            });
+
+            modelBuilder.Entity<IdentityRole>(entity =>
+            {
+                entity.ToTable("Roles");
+            });
+
+            modelBuilder.Entity<IdentityUserRole<string>>(entity =>
+            {
+                entity.ToTable("UserRoles");
+            });
+
+            modelBuilder.Entity<IdentityUserClaim<string>>(entity =>
+            {
+                entity.ToTable("UserClaims");
+            });
+
+            modelBuilder.Entity<IdentityUserLogin<string>>(entity =>
+            {
+                entity.ToTable("UserLogins");
+            });
+
+            modelBuilder.Entity<IdentityRoleClaim<string>>(entity =>
+            {
+                entity.ToTable("RoleClaims");
+            });
+
+            modelBuilder.Entity<IdentityUserToken<string>>(entity =>
+            {
+                entity.ToTable("UserTokens");
             });
         }
 
@@ -98,7 +146,7 @@ namespace DataAccess.Context
 
         private void UpdateTimestamps()
         {
-            var entries = ChangeTracker.Entries<FileUploadEntity>();
+            var entries = this.ChangeTracker.Entries<FileUploadEntity>();
 
             foreach (var entry in entries)
             {
