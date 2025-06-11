@@ -47,7 +47,8 @@ namespace LucasSaidEPRSynoptic.Controllers
                 logger.LogInformation("File served successfully by user {UserId}: {FileId} - {FileName}",
                     currentUser?.Id, id, fileName);
 
-                Response.Headers.Add("Content-Disposition", $"inline; filename=\"{fileName}\"");
+                // FIX: Use indexer instead of Add() to avoid duplicate header exception
+                Response.Headers["Content-Disposition"] = $"inline; filename=\"{fileName}\"";
                 return File(fileStream, contentType, fileName);
             }
             catch (FileNotFoundException)
@@ -87,20 +88,6 @@ namespace LucasSaidEPRSynoptic.Controllers
                 logger.LogError(ex, "Error in force download: {FileId}", id);
                 return StatusCode(500, "An error occurred while downloading the file");
             }
-        }
-
-        // Additional methods as per the full implementation...
-        private static string FormatFileSize(long bytes)
-        {
-            string[] sizes = { "B", "KB", "MB", "GB" };
-            double len = bytes;
-            int order = 0;
-            while (len >= 1024 && order < sizes.Length - 1)
-            {
-                order++;
-                len = len / 1024;
-            }
-            return $"{len:0.##} {sizes[order]}";
         }
     }
 }
