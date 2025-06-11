@@ -95,7 +95,6 @@ namespace DataAccess.Context
                       .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // Configure Identity table names (optional - for cleaner database)
             modelBuilder.Entity<ApplicationUser>(entity =>
             {
                 entity.ToTable("Users");

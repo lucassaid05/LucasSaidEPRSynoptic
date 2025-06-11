@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authorization;
-using DataAccess.Models; // Changed from LucasSaidEPRSynoptic.Models
+using DataAccess.Models;
 using LucasSaidEPRSynoptic.ViewModels;
 using LucasSaidEPRSynoptic.Models;
 

@@ -47,7 +47,6 @@ namespace LucasSaidEPRSynoptic.Controllers
                 logger.LogInformation("File served successfully by user {UserId}: {FileId} - {FileName}",
                     currentUser?.Id, id, fileName);
 
-                // FIX: Use indexer instead of Add() to avoid duplicate header exception
                 Response.Headers["Content-Disposition"] = $"inline; filename=\"{fileName}\"";
                 return File(fileStream, contentType, fileName);
             }
