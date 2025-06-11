@@ -21,6 +21,7 @@ namespace LucasSaidEPRSynoptic.Controllers
         private readonly ILogger<FileUploadController> _logger;
         private readonly UserManager<ApplicationUser> _userManager;
 
+        //CONSTRUCTOR INJECTION
         public FileUploadController(
             IFileService fileService,
             IFileUploadRepository repository,

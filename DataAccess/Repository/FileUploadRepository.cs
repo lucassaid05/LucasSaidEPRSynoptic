@@ -11,6 +11,7 @@ namespace DataAccess.Repository
         private readonly ApplicationDbContext _context;
         private readonly ILogger<FileUploadRepository> _logger;
 
+        //METHOD INJECTION
         public FileUploadRepository(ApplicationDbContext context, ILogger<FileUploadRepository> logger)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
